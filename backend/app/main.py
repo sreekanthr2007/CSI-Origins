@@ -17,7 +17,7 @@ logger = logging.getLogger("mule-detection-core")
 app = FastAPI(
     title=settings.APP_NAME,
     description="Privacy-Preserving Federated Graph Intelligence for Multi-Bank Fraud Rings",
-    version="0.1.0"
+    version="1.0.0"
 )
 
 # Configure CORS for local development
@@ -43,13 +43,14 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health", tags=["Health"])
 def health_check():
     """Health check endpoint."""
-    return {"status": "ok"}
+    return {"status": "ok", "version": "1.0.0"}
 
 
-# Register API routes
+# Register API routes under both /api and /api/v1
 app.include_router(api_router, prefix="/api", tags=["Core API"])
+app.include_router(api_router, prefix="/api/v1", tags=["v1 API"])
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.app.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    uvicorn.run("backend.app.main:app", host="0.0.0.0", port=8000, reload=True)
