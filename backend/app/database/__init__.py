@@ -19,6 +19,7 @@ from backend.app.database.repositories import (
     InvestigationRepository,
     AlertRepository,
     STRRepository,
+    GraphSnapshotRepository,
 )
 
 __all__ = [
@@ -37,4 +38,6 @@ __all__ = [
     "InvestigationRepository",
     "AlertRepository",
     "STRRepository",
+    "GraphSnapshotRepository",
 ]
+

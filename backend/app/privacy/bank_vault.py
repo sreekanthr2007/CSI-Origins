@@ -74,6 +74,10 @@ class BankVault:
         })
         return account
 
+    def resolve_standing_hash(self, hash_value: str) -> Optional[Dict[str, Any]]:
+        """Alias for resolve_hash."""
+        return self.resolve_hash(hash_value)
+
     def get_resolution_log(self) -> List[Dict[str, Any]]:
         """Return compliance audit history of hash lookups."""
         return list(self._resolution_log)
@@ -82,3 +86,8 @@ class BankVault:
     def total_accounts(self) -> int:
         """Return count of registered accounts in vault."""
         return len(self._local_accounts)
+
+
+# Global bank vaults registry by bank_id
+BANK_VAULTS: Dict[str, BankVault] = {}
+

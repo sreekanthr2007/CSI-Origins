@@ -1,9 +1,12 @@
 """Cryptographic privacy layer using dual-tier HMAC-SHA256 standing and ephemeral hashing."""
+import base64
 import hashlib
 import hmac
+import json
 import secrets
 import logging
 from typing import List, Optional
+from Crypto.Cipher import AES
 from backend.app.config import settings
 
 logger = logging.getLogger("mule-detection-privacy")
@@ -24,9 +27,53 @@ def generate_ephemeral_hash(account_number: str, bank_id: str, salt: str) -> str
     return f"INV:{digest}"
 
 
+def hash_for_investigation(account_number: str, bank_id: str, salt: str) -> str:
+    """Convenience alias for Flow B investigation hashing (returns INV:<hex>)."""
+    return generate_ephemeral_hash(account_number, bank_id, salt)
+
+
 def generate_investigation_salt() -> str:
     """Generate a 32-byte (64 character hex) cryptographically secure random investigation salt."""
     return secrets.token_bytes(32).hex()
+
+
+def _get_encryption_key(custom_key: Optional[str] = None) -> bytes:
+    """Derive 32-byte AES key from settings or custom key string."""
+    k = custom_key if custom_key is not None else settings.get_standing_key()
+    return hashlib.sha256(k.encode("utf-8")).digest()
+
+
+def encrypt_salt(salt: str, key: Optional[str] = None) -> str:
+    """Encrypt ephemeral investigation salt using AES-GCM (256-bit) for zero-plain-text database persistence."""
+    aes_key = _get_encryption_key(key)
+    cipher = AES.new(aes_key, AES.MODE_GCM)
+    ciphertext, tag = cipher.encrypt_and_digest(salt.encode("utf-8"))
+    payload = {
+        "nonce": base64.b64encode(cipher.nonce).decode("utf-8"),
+        "tag": base64.b64encode(tag).decode("utf-8"),
+        "ciphertext": base64.b64encode(ciphertext).decode("utf-8")
+    }
+    return base64.b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+
+
+def decrypt_salt(encrypted_str: str, key: Optional[str] = None) -> str:
+    """Decrypt persisted AES-GCM encrypted salt string."""
+    if not encrypted_str:
+        return ""
+    try:
+        raw_json = base64.b64decode(encrypted_str.encode("utf-8")).decode("utf-8")
+        payload = json.loads(raw_json)
+        nonce = base64.b64decode(payload["nonce"].encode("utf-8"))
+        tag = base64.b64decode(payload["tag"].encode("utf-8"))
+        ciphertext = base64.b64decode(payload["ciphertext"].encode("utf-8"))
+
+        aes_key = _get_encryption_key(key)
+        cipher = AES.new(aes_key, AES.MODE_GCM, nonce=nonce)
+        decrypted = cipher.decrypt_and_verify(ciphertext, tag)
+        return decrypted.decode("utf-8")
+    except Exception as e:
+        logger.error(f"Failed to decrypt salt: {e}")
+        raise ValueError("Decryption failed or invalid ciphertext/key")
 
 
 class HashingService:

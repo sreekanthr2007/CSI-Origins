@@ -1,0 +1,60 @@
+{
+  "investigation_id": "0e040268e30e8a76f99d391cea5a414c",
+  "status": {
+    "investigation_id": "0e040268e30e8a76f99d391cea5a414c",
+    "status": "completed",
+    "component_id": "comp_flow_b_demo",
+    "depth_reached": 0,
+    "banks_queried": [
+      "bank_pnb"
+    ],
+    "started_at": "2026-08-15 11:02:46",
+    "completed_at": null,
+    "closed_by": null
+  },
+  "traversal_result": {
+    "start_node": "HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37",
+    "nodes_visited": [
+      "HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37"
+    ],
+    "edges_visited": [],
+    "depth_reached": 0,
+    "banks_queried": [
+      "bank_pnb"
+    ],
+    "stopping_reason": "pattern_decay",
+    "stopping_at_edge": {
+      "from": "HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37",
+      "to": "HMAC:ac85d83d823d2f6225d461d3fd30e919e7478383feae160cdc67d30da5aa8e38",
+      "reason": "pattern_decay",
+      "pass_through": 0.2011,
+      "threshold": 0.6
+    },
+    "traversal_time_ms": 0.13,
+    "status": "completed",
+    "decay_metrics": {
+      "avg_pass_through": 0.0,
+      "min_pass_through": 0.0,
+      "avg_time_gap_minutes": 0.0,
+      "bank_diversity": 1
+    }
+  },
+  "playback_trace": [
+    {
+      "step_number": 1,
+      "action": "START",
+      "node": "HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37",
+      "description": "Initialized investigation from target node HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37",
+      "decision": "ACCEPT"
+    },
+    {
+      "step_number": 2,
+      "action": "HALT_TRAVERSAL",
+      "from": "HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37",
+      "to": "HMAC:ac85d83d823d2f6225d461d3fd30e919e7478383feae160cdc67d30da5aa8e38",
+      "reason": "pattern_decay",
+      "description": "Traversal halted at edge HMAC:e1126d98489942134098462b6265dcd68f5fec89da2f8d8929e6528574de6a37 -> HMAC:ac85d83d823d2f6225d461d3fd30e919e7478383feae160cdc67d30da5aa8e38 due to pattern_decay",
+      "decision": "REJECT"
+    }
+  ]
+}

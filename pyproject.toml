@@ -8,3 +8,8 @@ pythonpath = [
     ".",
     "backend"
 ]
+filterwarnings = [
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]

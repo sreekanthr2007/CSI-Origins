@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TRACE — Cross-Bank Mule Detection Demo Report</title>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0b132b; color: #f8fafc; padding: 30px; }
+        .card { background: #1e293b; border-radius: 12px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 1000px; margin: 0 auto; }
+        h1 { color: #38bdf8; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th { background: #0f172a; padding: 12px; text-align: left; color: #94a3b8; text-transform: uppercase; font-size: 11px; }
+        .badge { background: #10b98120; color: #10b981; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🛡️ TRACE: E2E Demonstration Validation Report</h1>
+        <p style="color: #94a3b8;">Automated Multi-Bank Mule Account Detection, Graph Traversal & FIU-IND Compliance</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Motif Description</th>
+                    <th>Nodes/Edges</th>
+                    <th>Detection Score</th>
+                    <th>Flow B Traversal</th>
+                    <th>Runtime</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+        <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 12px; font-weight: bold; color: #38bdf8;">Scenario 1</td>
+            <td style="padding: 12px;">Fast 4-Bank Rapid Chain (Pass-Through: 98%, ₹5L, 4 Banks)</td>
+            <td style="padding: 12px; font-family: monospace;">5 / 4</td>
+            <td style="padding: 12px; font-weight: bold; color: #ef4444;">
+                0.92 (FLAGGED)
+            </td>
+            <td style="padding: 12px; font-family: monospace;">completed (depth 4)</td>
+            <td style="padding: 12px; font-family: monospace;">0.57s</td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 12px; font-weight: bold; color: #38bdf8;">Scenario 2</td>
+            <td style="padding: 12px;">Collector Star Motif (8 Senders -> 1 Collector, ₹50k each)</td>
+            <td style="padding: 12px; font-family: monospace;">9 / 8</td>
+            <td style="padding: 12px; font-weight: bold; color: #ef4444;">
+                0.82 (FLAGGED)
+            </td>
+            <td style="padding: 12px; font-family: monospace;">completed (depth 1)</td>
+            <td style="padding: 12px; font-family: monospace;">0.45s</td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 12px; font-weight: bold; color: #38bdf8;">Scenario 3</td>
+            <td style="padding: 12px;">Distributor & Smurfing Ring (1 Hub -> 10 Receivers under ₹50k)</td>
+            <td style="padding: 12px; font-family: monospace;">11 / 10</td>
+            <td style="padding: 12px; font-weight: bold; color: #ef4444;">
+                0.92 (FLAGGED)
+            </td>
+            <td style="padding: 12px; font-family: monospace;">completed (depth 1)</td>
+            <td style="padding: 12px; font-family: monospace;">0.39s</td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 12px; font-weight: bold; color: #38bdf8;">Scenario 4</td>
+            <td style="padding: 12px;">Legitimate Account Traversal Decay (False Positive Prevention)</td>
+            <td style="padding: 12px; font-family: monospace;">3 / 2</td>
+            <td style="padding: 12px; font-weight: bold; color: #10b981;">
+                0.02 (LEGIT)
+            </td>
+            <td style="padding: 12px; font-family: monospace;">completed (depth 1)</td>
+            <td style="padding: 12px; font-family: monospace;">0.28s</td>
+        </tr>
+        
+            </tbody>
+        </table>
+        <p style="margin-top: 24px; color: #94a3b8; font-size: 12px;">Generated automatically on 2026-08-15 11:44:42 UTC</p>
+    </div>
+</body>
+</html>

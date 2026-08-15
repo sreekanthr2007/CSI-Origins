@@ -1,0 +1,152 @@
+{
+  "alert": {
+    "alert_id": "7322645d8d81554b9539450e037394a6",
+    "id": "7322645d8d81554b9539450e037394a6",
+    "component_id": "778afb5289fde73d17179b479dd0a553",
+    "severity": "critical",
+    "risk_score": 0.94,
+    "involved_banks": [
+      "bank_sbi",
+      "bank_hdfc",
+      "bank_icici",
+      "bank_axis"
+    ],
+    "dispatched_to": [
+      "bank_sbi",
+      "bank_hdfc",
+      "bank_icici",
+      "bank_axis"
+    ],
+    "explanation": {
+      "summary": "Rapid circular pass-through layering across 4 banking institutions with near-zero dwell time",
+      "top_drivers": [
+        "pass_through_ratio",
+        "cross_bank_velocity",
+        "in_out_ratio"
+      ]
+    },
+    "topology_snapshot": {
+      "nodes": [
+        "HMAC:d89ad9e413aa1e1c0981959addef4b8836158dd322d1c83ffc0b399877107225",
+        "HMAC:153a378b73110f5fb2a7f559481cfe57db1845e9cfa6d4739ef595ae7fac3696",
+        "HMAC:d9033a717d24699b01f722782ab01e080de0d626fcd280e5f6de7aa9768a6127",
+        "HMAC:9426eb0fa53f09f5af930321e72de078a9333d98fd0802e568112f6bbfd52598",
+        "HMAC:82e4e5e1054f7e3fbcac59a9533e8df432c887250f50058aec6e2cb249ca660c"
+      ],
+      "edges": [
+        {
+          "bank_id": "bank_sbi",
+          "amount": 125000.0
+        },
+        {
+          "bank_id": "bank_hdfc",
+          "amount": 125000.0
+        },
+        {
+          "bank_id": "bank_icici",
+          "amount": 125000.0
+        },
+        {
+          "bank_id": "bank_axis",
+          "amount": 125000.0
+        }
+      ]
+    },
+    "dispatch_time": "2026-08-15 11:11:47",
+    "status": "pending",
+    "resolution_status": "pending"
+  },
+  "dispatch_summary": {
+    "alert_id": "7322645d8d81554b9539450e037394a6",
+    "bank_acknowledged": [
+      "bank_sbi",
+      "bank_hdfc",
+      "bank_icici",
+      "bank_axis"
+    ],
+    "failed": [],
+    "total_dispatched": 4
+  },
+  "resolved_account": {
+    "hash": "HMAC:d89ad9e413aa1e1c0981959addef4b8836158dd322d1c83ffc0b399877107225",
+    "account_number": "SBIN1335688600",
+    "ifsc_code": "SBIN0002824",
+    "bank_id": "bank_sbi",
+    "bank_name": "State Bank of India",
+    "customer_name": "Anjali Joshi",
+    "kyc_status": "verified",
+    "declared_income": 37000.0,
+    "account_age_days": 45,
+    "is_dormant": false,
+    "created_at": "2026-08-15T11:11:47.600025+00:00"
+  },
+  "str_report": {
+    "str_id": "STR-20260815-66A441",
+    "schema_version": "1.0.0",
+    "regulatory_agency": "Financial Intelligence Unit - India (FIU-IND)",
+    "statutory_mandate": "Section 12, Prevention of Money Laundering Act (PMLA) 2002",
+    "filing_bank": "State Bank of India",
+    "bank_id": "bank_sbi",
+    "filing_officer": "Principal Compliance Officer",
+    "filing_date": "2026-08-15T11:11:47.619595+00:00",
+    "account_number": "SBIN1335688600",
+    "customer_name": "Anjali Joshi",
+    "kyc_status": "verified",
+    "risk_score": 0.94,
+    "severity": "critical",
+    "suspicion_reason": "recently opened account (45 days old) exhibiting immediate high-volume routing; Rapid circular pass-through layering across 4 banking institutions with near-zero dwell time",
+    "supporting_evidence": [
+      "Central Multi-Bank Temporal Directed Graph Topology Trace",
+      "SHAP Feature Attribution Vector (TreeExplainer)",
+      "Automated Mule Ring Component Risk Analysis",
+      "Encrypted Subgraph Adjacency Snapshot"
+    ],
+    "amount_involved": 500000.0,
+    "involved_banks": [
+      "bank_sbi",
+      "bank_hdfc",
+      "bank_icici",
+      "bank_axis"
+    ],
+    "alert_id": "7322645d8d81554b9539450e037394a6",
+    "component_id": "778afb5289fde73d17179b479dd0a553",
+    "transaction_chain": [
+      {
+        "bank_id": "bank_sbi",
+        "amount": 125000.0
+      },
+      {
+        "bank_id": "bank_hdfc",
+        "amount": 125000.0
+      },
+      {
+        "bank_id": "bank_icici",
+        "amount": 125000.0
+      },
+      {
+        "bank_id": "bank_axis",
+        "amount": 125000.0
+      }
+    ],
+    "recommended_actions": [
+      "Debit Freeze",
+      "File STR Immediately",
+      "Escalate to Compliance Officer",
+      "Notify Anti-Fraud Team"
+    ],
+    "top_drivers": [
+      "pass_through_ratio",
+      "cross_bank_velocity",
+      "in_out_ratio"
+    ]
+  },
+  "fiu_submission": {
+    "submission_id": "SUB-2026-8679E3E4",
+    "str_id": "STR-20260815-66A441",
+    "status": "accepted",
+    "filing_bank": "State Bank of India",
+    "regulatory_agency": "FIU-IND",
+    "timestamp": "2026-08-15T11:11:47.625567+00:00",
+    "acknowledgement_hash": "186b81269ed541bd834443d80492319f"
+  }
+}

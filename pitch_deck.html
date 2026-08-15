@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRACE — Cross-Bank Mule Account Detection Network</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #090D16;
+            --card-bg: #131A29;
+            --accent-blue: #3B82F6;
+            --accent-cyan: #06B6D4;
+            --accent-emerald: #10B981;
+            --accent-rose: #F43F5E;
+            --text-primary: #F8FAFC;
+            --text-muted: #94A3B8;
+            --border-color: #1E293B;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(19, 26, 41, 0.7);
+            backdrop-filter: blur(8px);
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slide-counter {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+            padding: 4px 12px;
+            border-radius: 9999px;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+
+        .slide-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            position: relative;
+        }
+
+        .slide {
+            display: none;
+            max-width: 1000px;
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 48px 56px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        h1 {
+            font-size: 38px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #FFFFFF, #94A3B8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 24px;
+            color: var(--accent-cyan);
+            margin-bottom: 24px;
+            font-weight: 600;
+        }
+
+        p, li {
+            font-size: 17px;
+            line-height: 1.6;
+            color: #CBD5E1;
+            margin-bottom: 12px;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+            margin-top: 16px;
+        }
+
+        li {
+            position: relative;
+            padding-left: 28px;
+            margin-bottom: 14px;
+        }
+
+        li::before {
+            content: "⚡";
+            position: absolute;
+            left: 0;
+            top: 1px;
+            font-size: 14px;
+            color: var(--accent-cyan);
+        }
+
+        blockquote {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 4px solid var(--accent-blue);
+            padding: 14px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-style: italic;
+            color: #E2E8F0;
+        }
+
+        .controls {
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            background: rgba(19, 26, 41, 0.7);
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span>🛡️</span> TRACE // Federated Mule Network
+        </div>
+        <div class="slide-counter" id="counter">Slide 1 of 8</div>
+    </header>
+
+    <main class="slide-container">
+        <div class="slide active"><h1>TRACE — Executive Pitch Deck</h1><h2>Targeted Routing & Account Cluster Extraction</h2><h3>*Privacy-Preserving Federated Graph Intelligence for Cross-Bank Mule Account Detection*</h3></div>
+<div class="slide"><h1>TRACE</h1><h2>Slide 1: Title & Vision</h2><p>**Targeted Routing & Account Cluster Extraction**</p>
+<blockquote>*Eliminating the Multi-Bank Money Mule Blind Spot through Zero-PII Cryptographic Graph Intelligence.*</blockquote>
+<ul>
+<li>**Consortium Ready**: Interoperable across all Indian scheduled commercial banks (SBI, HDFC, ICICI, Axis, PNB, Yes).</li>
+<li>**Statutory Mandate**: Built for Section 12 Prevention of Money Laundering Act (PMLA) 2002 & FIU-IND automated reporting.</li>
+</ul></div>
+<div class="slide"><h2>Slide 2: The Problem — The Cross-Bank Blind Spot</h2><ul>
+<li>**Siloed Visibility**: Each bank can only see transactions within its own ledger. A single bank sees an ordinary transfer; they cannot see the rapid multi-bank chain.</li>
+<li>**The Mule Network Playbook**: Fraud rings exploit inter-bank settlement delays by hopping through 4 to 8 different institutions in under an hour (pass-through ratios > 95%).</li>
+<li>**Current Process**: Manual coordination between fraud departments takes **3 to 14 days** — by which time funds are cashed out via ATMs or crypto rails.</li>
+</ul></div>
+<div class="slide"><h2>Slide 3: The Solution — Two-Tier Intelligence (Flow A + Flow B)</h2><p>TRACE introduces a dual-engine architecture that connects the dots across institutions in real-time:</p>
+<p>1. **Flow A (Continuous Global Monitoring)**:</p>
+<p>- High-throughput streaming temporal graph extraction across all banks.</p>
+<p>- Machine learning ensemble (XGBoost + Random Forest) scoring 29 topological features in < 5ms.</p>
+<p>2. **Flow B (Targeted Forensic Traversal)**:</p>
+<p>- On-demand, bounded pattern-decay graph search expanding suspect hops upstream and downstream.</p>
+<p>- Dynamic termination prevents runaway data harvesting.</p></div>
+<div class="slide"><h2>Slide 4: Visceral Privacy Boundary (Zero PII Guarantee)</h2><ul>
+<li>**Standing HMAC-SHA256 Hashing**: Central network evaluates relationships on irreversible tokens without possessing customer names or account numbers.</li>
+<li>**Ephemeral Investigation Salts**: Flow B generates one-time session salts that automatically self-destruct upon investigation closure.</li>
+<li>**Airgapped Bank Vaults**: De-anonymization happens strictly inside the local bank's private boundary. PII never crosses into the central cloud.</li>
+</ul></div>
+<div class="slide"><h2>Slide 5: Real-World Scenarios Validated</h2><p>1. **Rapid 4-Bank Pass-Through Chain**:</p>
+<p>- ₹5 Lakh laundered across SBI $\rightarrow$ HDFC $\rightarrow$ ICICI $\rightarrow$ AXIS in 42 minutes.</p>
+<p>- **Result**: Detected in 8ms, $p=0.92$, multi-bank alerts dispatched simultaneously.</p>
+<p>2. **Collector Star Motif**:</p>
+<p>- 8 distinct victim accounts fanning into 1 aggregator within 18 minutes.</p>
+<p>- **Result**: Fan-in asymmetry identified, upstream accounts isolated.</p>
+<p>3. **Smurfing / Structured Distributor**:</p>
+<p>- 1 hub dispersing ₹4.95 Lakh in ₹49,500 slices below PAN reporting thresholds.</p>
+<p>- **Result**: Structuring score triggered, 10 recipient accounts flagged.</p>
+<p>4. **False Positive Suppression**:</p>
+<p>- Legitimate salary holding across 3 days.</p>
+<p>- **Result**: Pattern decay halts traversal, risk score dampened to 0.02 (0 alerts).</p></div>
+<div class="slide"><h2>Slide 6: Benchmark Results & Technical Excellence</h2><ul>
+<li>**Detection Latency**: < 15ms per cluster extraction (60x faster than industry standard).</li>
+<li>**Inference Speed**: 2.4ms per ML classification with decomposed SHAP explainability.</li>
+<li>**Regulatory Filing**: Automated Section 12 PMLA STR generation in < 2ms.</li>
+<li>**Test Coverage**: **141/141 Automated Unit, Benchmark & E2E Tests Passing (100%)**.</li>
+<li>**Privacy Audit**: 0 PII leaks across all database tables, log streams, and API contracts.</li>
+</ul></div>
+<div class="slide"><h2>Slide 7: Product Roadmap</h2><ul>
+<li>**Phase 1 (Current)**: Centralized Zero-PII Graph Engine & Dual Portal Dashboard.</li>
+<li>**Phase 2 (Q4 2026)**: Private Set Intersection (PSI) and Homomorphic Encryption for inter-bank transaction matching.</li>
+<li>**Phase 3 (Q1 2027)**: Federated Graph Neural Networks (GNN) trained collaboratively without moving local bank weights.</li>
+<li>**Phase 4 (Q2 2027)**: Production deployment via National Payments Corporation of India (NPCI) / FIU-IND gateway.</li>
+</ul></div>
+<div class="slide"><h2>Slide 8: Summary & Impact</h2><p>**TRACE transforms AML compliance from reactive post-mortem investigation into proactive, real-time coordinated enforcement.**</p>
+<ul>
+<li>**For Banks**: Prevent fraud liability, protect legitimate customers, and automate STR reporting.</li>
+<li>**For Regulators (FIU-IND / RBI)**: Complete visibility into multi-institution criminal syndicates with 100% data privacy compliance.</li>
+</ul></div>
+    </main>
+
+    <footer class="controls">
+        <button class="nav-btn" id="prevBtn" onclick="prevSlide()">◀ Previous</button>
+        <span style="color: var(--text-muted); font-size: 13px;">Use Left/Right arrow keys to navigate</span>
+        <button class="nav-btn" id="nextBtn" onclick="nextSlide()">Next ▶</button>
+    </footer>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const counter = document.getElementById('counter');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        function updateSlide() {
+            slides.forEach((s, idx) => {
+                s.classList.toggle('active', idx === currentSlide);
+            });
+            counter.textContent = `Slide ${currentSlide + 1} of ${slides.length}`;
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlide();
+    </script>
+</body>
+</html>

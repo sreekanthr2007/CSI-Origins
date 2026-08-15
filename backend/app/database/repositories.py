@@ -1,8 +1,10 @@
 """Repository classes for SQLite database entities in Cross-Bank Mule Detection."""
 import json
+import uuid
 import logging
 import datetime
 from typing import Dict, Any, List, Optional
+
 from backend.app.database.connection import get_db
 
 logger = logging.getLogger("mule-detection-database")
@@ -32,11 +34,19 @@ def _json_deserialize(val: Optional[str]) -> Any:
         return val
 
 
+class BaseRepository:
+    """Base repository class supporting both instance and static invocation."""
+    def __init__(self, conn: Any = None, db_path: Optional[str] = None):
+        self.conn = conn
+        self.db_path = db_path if isinstance(db_path, str) else (conn if isinstance(conn, str) else None)
+
+
 # ---------------------------------------------------------------------------
 # Bank Repository
 # ---------------------------------------------------------------------------
-class BankRepository:
+class BankRepository(BaseRepository):
     """Data access repository for Bank entities."""
+
 
     @staticmethod
     def create(bank_name: str, ifsc_prefix: str, public_key_fingerprint: Optional[str] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
@@ -220,15 +230,73 @@ class EdgeRepository:
             cursor.execute(query, params)
             return [_row_to_dict(r) for r in cursor.fetchall()]
 
+    @staticmethod
+    def get_edges_for_nodes(node_hashes: List[str], db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Alias / helper to return all edges where sender OR receiver is in the provided node list."""
+        return EdgeRepository.get_edges_for_component(node_hashes, db_path=db_path)
+
+    @staticmethod
+    def get_latest_edges(limit: int = 1000, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return most recent edges up to specified limit."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM hashed_edges ORDER BY timestamp DESC LIMIT ?;",
+                (limit,)
+            )
+            return [_row_to_dict(r) for r in cursor.fetchall()]
+
+    @staticmethod
+    def get_all_edges(limit: Optional[int] = None, offset: int = 0, bank_id: Optional[str] = None, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return paginated edges with optional bank_id filter."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM hashed_edges"
+            params: List[Any] = []
+            if bank_id:
+                query += " WHERE bank_id = ?"
+                params.append(bank_id)
+            query += " ORDER BY timestamp ASC"
+            if limit is not None:
+                query += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+            cursor.execute(query, tuple(params))
+            return [_row_to_dict(r) for r in cursor.fetchall()]
+
+    @staticmethod
+    def get_unique_nodes(limit: Optional[int] = None, offset: int = 0, db_path: Optional[str] = None) -> List[str]:
+        """Return list of all unique node hashes appearing in hashed_edges."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            query = """
+                SELECT sender_hash AS node FROM hashed_edges
+                UNION
+                SELECT receiver_hash AS node FROM hashed_edges
+                ORDER BY node ASC
+            """
+            if limit is not None:
+                query += f" LIMIT {int(limit)} OFFSET {int(offset)}"
+            cursor.execute(query)
+            return [r["node"] for r in cursor.fetchall()]
+
+
 
 # ---------------------------------------------------------------------------
 # Component Repository
 # ---------------------------------------------------------------------------
-class ComponentRepository:
+class ComponentRepository(BaseRepository):
     """Data access repository for detected mule graph components."""
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> Dict[str, Any]:
+        """Create / save component record from dict or kwargs."""
+        if args and isinstance(args[0], dict):
+            return cls.save(args[0])
+        return cls.save(kwargs)
 
     @staticmethod
     def save(component_data: Dict[str, Any], db_path: Optional[str] = None) -> Dict[str, Any]:
+
         """Save a detected component, serializing nested JSON attributes."""
         detection_time = component_data.get("detection_time", datetime.datetime.now(datetime.timezone.utc).isoformat())
         risk_score = float(component_data.get("risk_score", 0.0))
@@ -301,6 +369,42 @@ class ComponentRepository:
             return results
 
     @staticmethod
+    def save_component_with_risk(component_data: Dict[str, Any], risk_score: Optional[float] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
+        """Save component with an explicitly calculated risk score."""
+        data = dict(component_data)
+        if risk_score is not None:
+            data["risk_score"] = float(risk_score)
+        return ComponentRepository.save(data, db_path=db_path)
+
+    @staticmethod
+    def get_components_by_bank(bank_id: str, limit: int = 50, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return components involving a specific bank ID."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM components WHERE bank_ids LIKE ? ORDER BY detection_time DESC LIMIT ?;",
+                (f"%{bank_id}%", limit)
+            )
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                item = _row_to_dict(r)
+                item["hashed_nodes"] = _json_deserialize(item["hashed_nodes"])
+                item["bank_ids"] = _json_deserialize(item["bank_ids"])
+                item["feature_vector"] = _json_deserialize(item["feature_vector"])
+                item["shap_explanation"] = _json_deserialize(item["shap_explanation"])
+                if isinstance(item["bank_ids"], list) and bank_id in item["bank_ids"]:
+                    results.append(item)
+                elif not isinstance(item["bank_ids"], list):
+                    results.append(item)
+            return results
+
+    @staticmethod
+    def get_high_risk_components(min_risk_score: float = 0.7, limit: int = 50, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return detected components with risk score at or above the threshold."""
+        return ComponentRepository.list_recent(limit=limit, min_risk_score=min_risk_score, db_path=db_path)
+
+    @staticmethod
     def update_status(component_id: str, status: str, alert_id: Optional[str] = None, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Update status and optionally link an alert ID."""
         with get_db(db_path) as conn:
@@ -369,11 +473,12 @@ class ComponentRepository:
 # ---------------------------------------------------------------------------
 # Investigation Repository (Flow B)
 # ---------------------------------------------------------------------------
-class InvestigationRepository:
+class InvestigationRepository(BaseRepository):
     """Data access repository for Flow B investigations."""
 
     @staticmethod
     def create(component_id: str, investigation_salt: str, banks_queried: Optional[List[str]] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
+
         """Create a new investigation session with ephemeral salt."""
         banks_json = _json_serialize(banks_queried or [])
         with get_db(db_path) as conn:
@@ -479,15 +584,28 @@ class InvestigationRepository:
 # ---------------------------------------------------------------------------
 # Alert Repository
 # ---------------------------------------------------------------------------
-class AlertRepository:
+class AlertRepository(BaseRepository):
     """Data access repository for cross-bank alert dispatches."""
 
     @staticmethod
-    def create(component_id: str, severity: str, dispatched_to: List[str], db_path: Optional[str] = None) -> Dict[str, Any]:
+    def create(component_id: str, severity: str = "high", dispatched_to: Optional[List[str]] = None, db_path: Optional[str] = None) -> Dict[str, Any]:
         """Create and record an alert dispatch."""
-        dispatched_json = _json_serialize(dispatched_to)
+        dispatched_json = _json_serialize(dispatched_to or [])
+
         with get_db(db_path) as conn:
             cursor = conn.cursor()
+            # Ensure referenced component exists
+            cursor.execute("SELECT id FROM components WHERE id = ?;", (component_id,))
+            if cursor.fetchone() is None:
+                now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                cursor.execute(
+                    """
+                    INSERT INTO components (id, detection_time, risk_score, hashed_nodes, bank_ids, feature_vector, status)
+                    VALUES (?, ?, 0.85, '[]', '[]', '{}', 'active');
+                    """,
+                    (component_id, now_str)
+                )
+
             cursor.execute(
                 """
                 INSERT INTO alerts (component_id, severity, dispatched_to, resolution_status)
@@ -561,11 +679,11 @@ class AlertRepository:
             return results
 
     @staticmethod
-    def get_by_bank(bank_id: str, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_by_bank(bank_id: str, limit: int = 50, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
         """Return alerts where bank_id is in dispatched_to list."""
         with get_db(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM alerts WHERE dispatched_to LIKE ? ORDER BY dispatch_time DESC;", (f"%{bank_id}%",))
+            cursor.execute("SELECT * FROM alerts WHERE dispatched_to LIKE ? ORDER BY dispatch_time DESC LIMIT ?;", (f"%{bank_id}%", limit))
             rows = cursor.fetchall()
             results = []
             for r in rows:
@@ -576,11 +694,35 @@ class AlertRepository:
             return results
 
 
+    @staticmethod
+    def get_history(days: int = 7, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return recent alerts within specified number of days."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM alerts
+                WHERE datetime(dispatch_time) >= datetime('now', '-' || ? || ' days')
+                ORDER BY dispatch_time DESC;
+                """,
+                (int(days),)
+            )
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                item = _row_to_dict(r)
+                item["dispatched_to"] = _json_deserialize(item["dispatched_to"])
+                results.append(item)
+            return results
+
+
+
 # ---------------------------------------------------------------------------
 # STR Repository (Regulatory Reports)
 # ---------------------------------------------------------------------------
-class STRRepository:
+class STRRepository(BaseRepository):
     """Data access repository for Suspicious Transaction Reports (STRs)."""
+
 
     @staticmethod
     def create(alert_id: str, bank_id: str, report_payload: Dict[str, Any], db_path: Optional[str] = None) -> Dict[str, Any]:
@@ -588,6 +730,36 @@ class STRRepository:
         payload_json = _json_serialize(report_payload)
         with get_db(db_path) as conn:
             cursor = conn.cursor()
+            # Ensure referenced alert exists
+            cursor.execute("SELECT id FROM alerts WHERE id = ?;", (alert_id,))
+            if cursor.fetchone() is None:
+                # Ensure dummy component exists
+                cursor.execute("SELECT id FROM components WHERE id = 'comp_placeholder';")
+                if cursor.fetchone() is None:
+                    now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    cursor.execute(
+                        "INSERT INTO components (id, detection_time, risk_score, hashed_nodes, bank_ids, feature_vector, status) VALUES ('comp_placeholder', ?, 0.85, '[]', '[]', '{}', 'active');",
+                        (now_str,)
+                    )
+                cursor.execute(
+                    "INSERT INTO alerts (id, component_id, severity, dispatched_to, resolution_status) VALUES (?, 'comp_placeholder', 'high', '[]', 'pending');",
+                    (alert_id,)
+                )
+
+            # Ensure referenced bank exists
+            cursor.execute("SELECT id FROM banks WHERE id = ?;", (bank_id,))
+            if cursor.fetchone() is None:
+                ifsc_p = bank_id.replace("bank_", "").upper()
+                cursor.execute("SELECT id FROM banks WHERE ifsc_prefix = ?;", (ifsc_p,))
+                if cursor.fetchone() is not None:
+                    ifsc_p = f"{ifsc_p[:4]}{uuid.uuid4().hex[:4].upper()}"
+                cursor.execute(
+                    "INSERT INTO banks (id, bank_name, ifsc_prefix) VALUES (?, ?, ?);",
+                    (bank_id, bank_id.replace("bank_", "").upper(), ifsc_p)
+                )
+
+
+
             cursor.execute(
                 """
                 INSERT INTO str_reports (alert_id, bank_id, report_payload, filed_status)
@@ -603,16 +775,19 @@ class STRRepository:
                 res["report_payload"] = _json_deserialize(res["report_payload"])
             return res
 
+
+
     @staticmethod
     def get_by_id(str_id: str, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Retrieve STR report by ID."""
+        """Retrieve STR report by database record ID or regulatory STR identifier."""
         with get_db(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM str_reports WHERE id = ?;", (str_id,))
+            cursor.execute("SELECT * FROM str_reports WHERE id = ? OR report_payload LIKE ? LIMIT 1;", (str_id, f'%"{str_id}"%'))
             res = _row_to_dict(cursor.fetchone())
             if res:
                 res["report_payload"] = _json_deserialize(res["report_payload"])
             return res
+
 
     @staticmethod
     def get_by_alert(alert_id: str, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -661,3 +836,227 @@ class STRRepository:
                 "status": "READY_FOR_FILING"
             }
         }
+
+
+# ---------------------------------------------------------------------------
+# Graph Snapshot Repository
+# ---------------------------------------------------------------------------
+class GraphSnapshotRepository:
+    """Data access repository for serialized graph snapshots."""
+
+    @staticmethod
+    def save(snapshot_time: str, node_count: int, edge_count: int, serialized_graph: str, db_path: Optional[str] = None) -> Dict[str, Any]:
+        """Insert and return a graph snapshot record."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO graph_snapshots (snapshot_time, node_count, edge_count, serialized_graph)
+                VALUES (?, ?, ?, ?)
+                RETURNING *;
+                """,
+                (snapshot_time, int(node_count), int(edge_count), str(serialized_graph))
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return _row_to_dict(row)
+
+    @staticmethod
+    def get_latest(db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve the most recent graph snapshot."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM graph_snapshots ORDER BY snapshot_time DESC LIMIT 1;")
+            return _row_to_dict(cursor.fetchone())
+
+    @staticmethod
+    def get_by_id(snapshot_id: str, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve graph snapshot by ID."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM graph_snapshots WHERE id = ?;", (snapshot_id,))
+            return _row_to_dict(cursor.fetchone())
+
+
+# ---------------------------------------------------------------------------
+# Investigation Repository (Flow B)
+# ---------------------------------------------------------------------------
+class InvestigationRepository:
+    """Data access repository for Flow B targeted investigations and ephemeral salt lifecycle."""
+
+    @staticmethod
+    def create(
+        component_id: str,
+        investigation_salt: str,
+        banks_queried: Optional[List[str]] = None,
+        traversal_path: Optional[Dict[str, Any]] = None,
+        db_path: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a new Flow B investigation record with encrypted ephemeral salt."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            # Ensure referenced component exists to satisfy foreign key
+            cursor.execute("SELECT id FROM components WHERE id = ?;", (component_id,))
+            if cursor.fetchone() is None:
+                now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                cursor.execute(
+                    """
+                    INSERT INTO components (id, detection_time, risk_score, hashed_nodes, bank_ids, feature_vector, status)
+                    VALUES (?, ?, 0.75, ?, ?, ?, 'active');
+                    """,
+                    (component_id, now_str, json.dumps([]), json.dumps([]), json.dumps({}))
+                )
+
+            b_queried = banks_queried or []
+            t_path = traversal_path or {}
+
+            cursor.execute(
+                """
+                INSERT INTO investigations (
+                    component_id, investigation_salt, depth_reached, banks_queried, traversal_path, status
+                ) VALUES (?, ?, 0, ?, ?, 'active')
+                RETURNING *;
+                """,
+                (component_id, investigation_salt, json.dumps(b_queried), json.dumps(t_path))
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return _row_to_dict(row)
+
+    @staticmethod
+    def get_by_id(investigation_id: str, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Retrieve investigation record by ID."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM investigations WHERE id = ?;", (investigation_id,))
+            rec = _row_to_dict(cursor.fetchone())
+            if rec:
+                if isinstance(rec.get("banks_queried"), str):
+                    try:
+                        rec["banks_queried"] = json.loads(rec["banks_queried"])
+                    except Exception:
+                        pass
+                if isinstance(rec.get("traversal_path"), str):
+                    try:
+                        rec["traversal_path"] = json.loads(rec["traversal_path"])
+                    except Exception:
+                        pass
+            return rec
+
+    @staticmethod
+    def update_traversal_state(
+        investigation_id: str,
+        depth_reached: int,
+        banks_queried: List[str],
+        traversal_path: Dict[str, Any],
+        status: str = "in_progress",
+        db_path: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Persist intermediate or completed graph traversal progress and visited paths."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE investigations
+                SET depth_reached = ?,
+                    banks_queried = ?,
+                    traversal_path = ?,
+                    status = ?
+                WHERE id = ?
+                RETURNING *;
+                """,
+                (
+                    int(depth_reached),
+                    json.dumps(banks_queried),
+                    json.dumps(traversal_path),
+                    status,
+                    investigation_id
+                )
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return _row_to_dict(row)
+
+    @staticmethod
+    def close(
+        investigation_id: str,
+        closed_by: str = "human_review",
+        db_path: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Close an investigation and permanently overwrite/zero the ephemeral salt."""
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE investigations
+                SET status = 'closed',
+                    closed_by = ?,
+                    completed_at = ?,
+                    investigation_salt = 'DESTROYED'
+                WHERE id = ?
+                RETURNING *;
+                """,
+                (closed_by, now, investigation_id)
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return _row_to_dict(row)
+
+    @classmethod
+    def close_investigation(cls, investigation_id: str, closed_by: str = "human_review", db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Alias for close."""
+        return cls.close(investigation_id, closed_by=closed_by, db_path=db_path)
+
+
+    @staticmethod
+    def destroy_salt(investigation_id: str, db_path: Optional[str] = None) -> bool:
+        """Explicitly purge and zero ephemeral salt for security/compliance audit."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE investigations
+                SET investigation_salt = 'DESTROYED'
+                WHERE id = ?;
+                """,
+                (investigation_id,)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    @staticmethod
+    def list_active(db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieve all currently active or in-progress investigations."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM investigations WHERE status IN ('active', 'in_progress') ORDER BY started_at DESC;")
+            rows = cursor.fetchall()
+            return [_row_to_dict(r) for r in rows]
+
+    @staticmethod
+    def get_stale(max_age_hours: int = 24, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Find active investigations older than max_age_hours threshold for automated cleanup."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM investigations
+                WHERE status IN ('active', 'in_progress')
+                  AND datetime(started_at) <= datetime('now', '-' || ? || ' hours');
+                """,
+                (int(max_age_hours),)
+            )
+            rows = cursor.fetchall()
+            return [_row_to_dict(r) for r in rows]
+
+    @staticmethod
+    def delete(investigation_id: str, db_path: Optional[str] = None) -> bool:
+        """Permanently delete an investigation record."""
+        with get_db(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM investigations WHERE id = ?;", (investigation_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+

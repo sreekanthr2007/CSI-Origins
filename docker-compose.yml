@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # Backend API & ML Inference Service
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: trace-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=sqlite:////app/backend/data/mule_network.db
+      - HMAC_STANDING_KEY=trace_prod_standing_hmac_secret_key_2026_99a8b7c6d5e4
+      - EPHEMERAL_KEY_SECRET=trace_prod_ephemeral_kdf_secret_2026_11a2b3c4d5
+      - SALT_EXPIRY_HOURS=24
+      - MAX_INVESTIGATION_DEPTH=4
+      - CORS_ORIGINS=["http://localhost", "http://localhost:80", "http://localhost:3000", "http://localhost:5173"]
+    volumes:
+      - ./backend/data:/app/backend/data
+    networks:
+      - trace-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ----------------------------------------------------------------------------
+  # Frontend Dual-Portal UI & Reverse Proxy
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: trace-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - trace-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ----------------------------------------------------------------------------
+  # (Optional Production RDBMS) PostgreSQL Database
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: trace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trace_user
+      POSTGRES_PASSWORD: trace_secure_password_2026
+      POSTGRES_DB: trace_mule_detection
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - trace-net
+    profiles:
+      - production-db
+
+networks:
+  trace-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
